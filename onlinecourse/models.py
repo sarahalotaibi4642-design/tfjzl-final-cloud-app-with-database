@@ -108,9 +108,41 @@ class Question(models.Model):
     content = models.CharField(max_length=200)
     grade = models.IntegerField(default=0)
 
+    @property
+    def question_text(self):
+        return self.content
+
+    def is_get_score(self, selected_ids):
+        correct_ids = set(
+            self.choice_set.filter(is_correct=True)
+            .values_list('id', flat=True)
+        )
+        selected = set(
+            self.choice_set.filter(id__in=selected_ids)
+            .values_list('id', flat=True)
+        )
+        return bool(correct_ids) and selected == correct_ids
+
     def __str__(self):
         return self.content
 
+
+class Choice(models.Model):
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    content = models.CharField(max_length=200)
+    is_correct = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.content
+
+
+class Submission(models.Model):
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE)
+    choices = models.ManyToManyField(Choice)
+    total_score = models.FloatField(default=0)
+
+    def __str__(self):
+        return f"Submission {self.pk}"
 
 # Choice model
 class Choice(models.Model):
