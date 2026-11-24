@@ -155,14 +155,22 @@ def submit(request, course_id):
 
 def show_exam_result(request, course_id, submission_id):
     course = get_object_or_404(Course, pk=course_id)
+
     submission = get_object_or_404(
-        Submission, pk=submission_id, enrollment__course=course
+        Submission,
+        pk=submission_id,
+        enrollment__course=course,
+        enrollment__user=request.user
     )
 
     questions = Question.objects.filter(course=course)
     selected_choices = submission.choices.all()
+    selected_ids = list(
+        selected_choices.values_list('id', flat=True)
+    )
 
     total_score = 0
+    total_possible = 0
     question_results = []
 
     for question in questions:
@@ -171,10 +179,9 @@ def show_exam_result(request, course_id, submission_id):
             question=question
         ).first()
 
-        is_correct = (
-            selected_choice is not None
-            and selected_choice.is_correct
-        )
+        is_correct = question.is_get_score(selected_ids)
+
+        total_possible += question.grade
 
         if is_correct:
             total_score += question.grade
@@ -186,6 +193,11 @@ def show_exam_result(request, course_id, submission_id):
             'is_correct': is_correct,
         })
 
+    grade = (
+        total_score / total_possible * 100
+        if total_possible else 0
+    )
+
     submission.total_score = total_score
     submission.save()
 
@@ -194,6 +206,8 @@ def show_exam_result(request, course_id, submission_id):
         'submission': submission,
         'question_results': question_results,
         'total_score': total_score,
+        'selected_ids': selected_ids,
+        'grade': grade,
     }
 
     return render(
@@ -201,6 +215,3 @@ def show_exam_result(request, course_id, submission_id):
         'onlinecourse/exam_result_bootstrap.html',
         context
     )
-
-
-
